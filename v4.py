@@ -539,4 +539,39 @@ RX: 8100000A000B000C00000000051B0000000000000000
 2025-11-22 16:08:53.817367 D0..D9 = [10, 11, 12, 0, 0, 1307, 0, 0, 0, 0]
 TX: 03FF000A4420000000050100051C
 RX: 8300
+
+
+pi@raspberrypi:~/PythonProjects/mc-test $ ping 192.168.3.254
+PING 192.168.3.254 (192.168.3.254) 56(84) bytes of data.
+64 bytes from 192.168.3.254: icmp_seq=1 ttl=250 time=1.97 ms
+64 bytes from 192.168.3.254: icmp_seq=2 ttl=250 time=1.19 ms
+64 bytes from 192.168.3.254: icmp_seq=3 ttl=250 time=1.19 ms
+64 bytes from 192.168.3.254: icmp_seq=4 ttl=250 time=1.21 ms
+64 bytes from 192.168.3.254: icmp_seq=5 ttl=250 time=1.20 ms
+^C
+--- 192.168.3.254 ping statistics ---
+5 packets transmitted, 5 received, 0% packet loss, time 4005ms
+rtt min/avg/max/mdev = 1.190/1.353/1.973/0.310 ms
+pi@raspberrypi:~/PythonProjects/mc-test $ ^C
+pi@raspberrypi:~/PythonProjects/mc-test $ nmap -p 1027 192.168.3.254
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-11-22 09:09 GMT
+Nmap scan report for 192.168.3.254
+Host is up (0.0019s latency).
+
+PORT     STATE SERVICE
+1027/tcp open  IIS
+
+Nmap done: 1 IP address (1 host up) scanned in 0.15 seconds
+pi@raspberrypi:~/PythonProjects/mc-test $ python v4.py 
+Testing MC connection to PLC at 192.168.3.254:1027 ...
+TX: 01FF000A4420000000000001
+RX: 8157
+TX: 01FF000A4420000000000100
+ERROR: Cannot communicate with PLC via MC protocol:
+   Command failed (both spec/swap modes): Socket error to 192.168.3.254:1027 -> [Errno 111] Connection refused
+Check:
+  - FX3U-ENET-L: Open settings → Protocol=TCP, Open System = (MC)
+  - Host Station Port No. = 1027  (must match FX config)
+  - Communication data code = ASCII / A-compatible 1E
+
 '''
