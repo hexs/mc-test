@@ -87,3 +87,9 @@ Traceback (most recent call last):
     raise MCError(f"Command failed (both spec/swap modes): {last_err}")
 MCError: Command failed (both spec/swap modes): [Errno 111] Connection refused
 ```
+
+```
+pi@raspberrypi:~/PythonProjects/mc-test $ python test_socket.py 
+Connecting to 192.168.3.254:1027 ...
+OK: TCP connected
+```
