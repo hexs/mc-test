@@ -390,9 +390,9 @@ class FX3U:
 
 
 def main() -> None:
-    # ใช้งานจริง: เปิด keep_conn, ปิด debug
-    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True, debug=False) as plc:
-        # self-test สั้น ๆ เวลา start
+    # ใช้งานจริงกับ ENET-L: per-command connection = เสถียรสุด
+    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=False, debug=False) as plc:
+        # self-test สั้น ๆ
         try:
             d0 = plc.read_d(0, 1)[0]
             x0 = plc.read_x(0, 1)[0]
@@ -409,7 +409,7 @@ def main() -> None:
             x_vals = plc.read_x(0, 8)
             print(datetime.now(), "X0..X7 =", x_vals)
 
-            # ปิด Y0..Y7 ทีละบิต
+            # ปิด Y0..Y7 ทีละบิต (หรือจะใช้แบบ batch ด้านล่างก็ได้)
             for i in range(8):
                 plc.write_y(i, 0)
                 print(datetime.now(), f"Y{i} = 0")
