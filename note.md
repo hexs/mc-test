@@ -1,6 +1,27 @@
 
 
 
+```
+pi@raspberrypi:~/PythonProjects/mc-test $ python v4.py 
+Connected to PLC
+  D0 = 10   X0 = 0   Y0 = 1
+
+2025-11-22 09:15:55.009302 X0..X7 = [0, 0, 0, 0, 0, 0, 0, 0]
+Traceback (most recent call last):
+  File "/home/pi/PythonProjects/mc-test/v4.py", line 438, in <module>
+    main()
+    ~~~~^^
+  File "/home/pi/PythonProjects/mc-test/v4.py", line 414, in main
+    plc.write_y(i, 0)
+    ~~~~~~~~~~~^^^^^^
+  File "/home/pi/PythonProjects/mc-test/v4.py", line 389, in write_y
+    self._cmd(0x02, self.DEV_Y, head, len(vals), data)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/PythonProjects/mc-test/v4.py", line 290, in _cmd
+    raise MCError(f"Command failed (both spec/swap modes): {last_err}")
+MCError: Command failed (both spec/swap modes): [Errno 111] Connection refused
+
+```
 
 ```
 pi@raspberrypi:~/PythonProjects/mc-test $ python test_socket.py 
