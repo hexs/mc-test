@@ -371,10 +371,6 @@ class FX3U:
 def main() -> None:
     plc = FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True)
 
-    plc.read_x(0, 1)
-    plc.write_y(0,plc.read_y(0, 1))
-    plc.write_d(0, plc.read_d(0, 1))
-
     try:
         while True:
             # อ่าน X0..X7
