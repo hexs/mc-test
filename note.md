@@ -43,3 +43,47 @@ Traceback (most recent call last):
     raise MCError(f"Command failed (both spec/swap modes): {last_err}")
 MCError: Command failed (both spec/swap modes): [Errno 111] Connection refused
 ```
+
+
+```
+pi@raspberrypi:~/PythonProjects/mc-test $ ping 192.168.3.254
+PING 192.168.3.254 (192.168.3.254) 56(84) bytes of data.
+64 bytes from 192.168.3.254: icmp_seq=1 ttl=250 time=1.75 ms
+64 bytes from 192.168.3.254: icmp_seq=2 ttl=250 time=1.20 ms
+64 bytes from 192.168.3.254: icmp_seq=3 ttl=250 time=1.26 ms
+64 bytes from 192.168.3.254: icmp_seq=4 ttl=250 time=1.19 ms
+64 bytes from 192.168.3.254: icmp_seq=5 ttl=250 time=1.19 ms
+64 bytes from 192.168.3.254: icmp_seq=6 ttl=250 time=1.19 ms
+64 bytes from 192.168.3.254: icmp_seq=7 ttl=250 time=1.20 ms
+64 bytes from 192.168.3.254: icmp_seq=8 ttl=250 time=1.19 ms
+64 bytes from 192.168.3.254: icmp_seq=9 ttl=250 time=1.19 ms
+64 bytes from 192.168.3.254: icmp_seq=10 ttl=250 time=1.20 ms
+^C
+--- 192.168.3.254 ping statistics ---
+10 packets transmitted, 10 received, 0% packet loss, time 9016ms
+rtt min/avg/max/mdev = 1.187/1.256/1.752/0.166 ms
+pi@raspberrypi:~/PythonProjects/mc-test $ ^C
+pi@raspberrypi:~/PythonProjects/mc-test $ nmap -p 1027 192.168.3.254
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-11-22 08:56 GMT
+Nmap scan report for 192.168.3.254
+Host is up (0.0019s latency).
+
+PORT     STATE SERVICE
+1027/tcp open  IIS
+
+Nmap done: 1 IP address (1 host up) scanned in 0.15 seconds
+pi@raspberrypi:~/PythonProjects/mc-test $ python v3.py 
+Traceback (most recent call last):
+  File "/home/pi/PythonProjects/mc-test/v3.py", line 414, in <module>
+    main()
+    ~~~~^^
+  File "/home/pi/PythonProjects/mc-test/v3.py", line 375, in main
+    plc.write_y(0,plc.read_y(0, 1))
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/PythonProjects/mc-test/v3.py", line 365, in write_y
+    self._cmd(0x02, self.DEV_Y, head, len(vals), data)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/PythonProjects/mc-test/v3.py", line 266, in _cmd
+    raise MCError(f"Command failed (both spec/swap modes): {last_err}")
+MCError: Command failed (both spec/swap modes): [Errno 111] Connection refused
+```
