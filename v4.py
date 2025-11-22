@@ -30,12 +30,12 @@ class FX3U:
     _POINTS_MODE_CACHE: Dict[Tuple[int, str], bool] = {}
 
     def __init__(
-        self,
-        ip: str,
-        port: int,
-        timeout: float = 1.5,
-        keep_conn: bool = True,
-        debug: bool = False,
+            self,
+            ip: str,
+            port: int,
+            timeout: float = 1.5,
+            keep_conn: bool = True,
+            debug: bool = False,
     ):
         """
         ip        : IP address of FX3U-ENET-L (e.g. "192.168.3.254")
@@ -202,12 +202,12 @@ class FX3U:
 
     @staticmethod
     def _build_1e_cmd_header(
-        cmd: int,
-        dev_code: str,
-        head: int,
-        count: int,
-        *,
-        swap_points: bool = False,
+            cmd: int,
+            dev_code: str,
+            head: int,
+            count: int,
+            *,
+            swap_points: bool = False,
     ) -> str:
         """
         Build MC 1E ASCII command header (without data part).
@@ -241,12 +241,12 @@ class FX3U:
         return header + dev_code + head_hex + cnt_hex
 
     def _cmd(
-        self,
-        cmd: int,
-        dev: str,
-        head: int,
-        count: int,
-        data: Optional[str] = None,
+            self,
+            cmd: int,
+            dev: str,
+            head: int,
+            count: int,
+            data: Optional[str] = None,
     ) -> str:
         """
         Full MC command:
@@ -390,38 +390,20 @@ class FX3U:
 
 
 def main() -> None:
-    # เริ่มด้วย keep_conn=False ช่วง debug ให้แน่ใจว่า per-command connection ใช้งานได้
-    with FX3U("192.168.3.254", 1027, timeout=2.0, keep_conn=False, debug=True) as plc:
-        # ---- quick self-test ----
+    # ใช้งานจริง: เปิด keep_conn, ปิด debug
+    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True, debug=False) as plc:
+        # self-test สั้น ๆ เวลา start
         try:
-            print(f"Testing MC connection to PLC at {plc.ip}:{plc.port} ...")
-
-            # ทดสอบ read D0
-            d0 = plc.read_d(0, 1)
-            print("  D0 =", d0)
-
-            # ทดสอบ read X0, Y0
-            x0 = plc.read_x(0, 1)
-            y0 = plc.read_y(0, 1)
-            print("  X0 =", x0)
-            print("  Y0 =", y0)
-
-            # ทดสอบ write echo กลับ
-            plc.write_y(0, y0)
-            plc.write_d(0, d0)
-            print("OK: MC protocol works")
+            d0 = plc.read_d(0, 1)[0]
+            x0 = plc.read_x(0, 1)[0]
+            y0 = plc.read_y(0, 1)[0]
+            print("Connected to PLC")
+            print("  D0 =", d0, "  X0 =", x0, "  Y0 =", y0)
             print()
-
         except MCError as e:
-            print("ERROR: Cannot communicate with PLC via MC protocol:")
-            print("  ", e)
-            print("Check:")
-            print("  - FX3U-ENET-L: Open settings → Protocol=TCP, Open System = (MC)")
-            print("  - Host Station Port No. =", plc.port, " (must match FX config)")
-            print("  - Communication data code = ASCII / A-compatible 1E")
+            print("MCError on startup:", e)
             return
 
-        # ---- main loop ----
         while True:
             # อ่าน X0..X7
             x_vals = plc.read_x(0, 8)
@@ -432,7 +414,7 @@ def main() -> None:
                 plc.write_y(i, 0)
                 print(datetime.now(), f"Y{i} = 0")
 
-            y_vals = plc.read_y(0, 8)  # Y0..Y7
+            y_vals = plc.read_y(0, 8)
             print(datetime.now(), "Y0..Y7 =", y_vals)
 
             # เปิด Y0..Y7 ทีละบิต
@@ -440,138 +422,17 @@ def main() -> None:
                 plc.write_y(i, 1)
                 print(datetime.now(), f"Y{i} = 1")
 
-            y_vals = plc.read_y(0, 8)  # Y0..Y7
+            y_vals = plc.read_y(0, 8)
             print(datetime.now(), "Y0..Y7 =", y_vals)
 
-            # อ่าน D0..D9 (10 words)
-            vals = plc.read_d(0, 10)
-            print(datetime.now(), "D0..D9 =", vals)
+            # อ่าน D0..D9
+            d_vals = plc.read_d(0, 10)
+            print(datetime.now(), "D0..D9 =", d_vals)
 
             # เพิ่มค่า D5 ทีละ 1
-            plc.write_d(5, vals[5] + 1)
+            plc.write_d(5, d_vals[5] + 1)
 
             print()
 
 
 main()
-
-'''
-on PC windows output:
-Testing MC connection to PLC at 192.168.3.254:1027 ...
-TX: 01FF000A4420000000000001
-RX: 8157
-TX: 01FF000A4420000000000100
-RX: 8100000A
-  D0 = [10]
-TX: 00FF000A5820000000000001
-RX: 80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-TX: 00FF000A5920000000000001
-RX: 80001110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-  X0 = [0]
-  Y0 = [1]
-TX: 02FF000A592000000000000110
-TX: 02FF000A592000000000010010
-RX: 8200
-TX: 03FF000A4420000000000001000A
-TX: 03FF000A4420000000000100000A
-RX: 8300
-OK: MC protocol works
-
-TX: 00FF000A5820000000000008
-RX: 80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-2025-11-22 16:08:39.733290 X0..X7 = [0, 0, 0, 0, 0, 0, 0, 0]
-TX: 02FF000A592000000000010000
-RX: 8200
-2025-11-22 16:08:40.469517 Y0 = 0
-TX: 02FF000A592000000001010000
-RX: 8200
-2025-11-22 16:08:41.219759 Y1 = 0
-TX: 02FF000A592000000002010000
-RX: 8200
-2025-11-22 16:08:41.969410 Y2 = 0
-TX: 02FF000A592000000003010000
-RX: 8200
-2025-11-22 16:08:42.719355 Y3 = 0
-TX: 02FF000A592000000004010000
-RX: 8200
-2025-11-22 16:08:43.471417 Y4 = 0
-TX: 02FF000A592000000005010000
-RX: 8200
-2025-11-22 16:08:44.221287 Y5 = 0
-TX: 02FF000A592000000006010000
-RX: 8200
-2025-11-22 16:08:44.943882 Y6 = 0
-TX: 02FF000A592000000007010000
-RX: 8200
-2025-11-22 16:08:45.681632 Y7 = 0
-TX: 00FF000A5920000000000008
-RX: 80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-2025-11-22 16:08:46.421725 Y0..Y7 = [0, 0, 0, 0, 0, 0, 0, 0]
-TX: 02FF000A592000000000010010
-RX: 8200
-2025-11-22 16:08:47.172618 Y0 = 1
-TX: 02FF000A592000000001010010
-RX: 8200
-2025-11-22 16:08:47.907124 Y1 = 1
-TX: 02FF000A592000000002010010
-RX: 8200
-2025-11-22 16:08:48.642025 Y2 = 1
-TX: 02FF000A592000000003010010
-RX: 8200
-2025-11-22 16:08:49.377628 Y3 = 1
-TX: 02FF000A592000000004010010
-RX: 8200
-2025-11-22 16:08:50.130754 Y4 = 1
-TX: 02FF000A592000000005010010
-RX: 8200
-2025-11-22 16:08:50.855397 Y5 = 1
-TX: 02FF000A592000000006010010
-RX: 8200
-2025-11-22 16:08:51.580055 Y6 = 1
-TX: 02FF000A592000000007010010
-RX: 8200
-2025-11-22 16:08:52.315048 Y7 = 1
-TX: 00FF000A5920000000000008
-RX: 80001111111100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-2025-11-22 16:08:53.068315 Y0..Y7 = [1, 1, 1, 1, 1, 1, 1, 1]
-TX: 01FF000A4420000000000A00
-RX: 8100000A000B000C00000000051B0000000000000000
-2025-11-22 16:08:53.817367 D0..D9 = [10, 11, 12, 0, 0, 1307, 0, 0, 0, 0]
-TX: 03FF000A4420000000050100051C
-RX: 8300
-
-
-pi@raspberrypi:~/PythonProjects/mc-test $ ping 192.168.3.254
-PING 192.168.3.254 (192.168.3.254) 56(84) bytes of data.
-64 bytes from 192.168.3.254: icmp_seq=1 ttl=250 time=1.97 ms
-64 bytes from 192.168.3.254: icmp_seq=2 ttl=250 time=1.19 ms
-64 bytes from 192.168.3.254: icmp_seq=3 ttl=250 time=1.19 ms
-64 bytes from 192.168.3.254: icmp_seq=4 ttl=250 time=1.21 ms
-64 bytes from 192.168.3.254: icmp_seq=5 ttl=250 time=1.20 ms
-^C
---- 192.168.3.254 ping statistics ---
-5 packets transmitted, 5 received, 0% packet loss, time 4005ms
-rtt min/avg/max/mdev = 1.190/1.353/1.973/0.310 ms
-pi@raspberrypi:~/PythonProjects/mc-test $ ^C
-pi@raspberrypi:~/PythonProjects/mc-test $ nmap -p 1027 192.168.3.254
-Starting Nmap 7.95 ( https://nmap.org ) at 2025-11-22 09:09 GMT
-Nmap scan report for 192.168.3.254
-Host is up (0.0019s latency).
-
-PORT     STATE SERVICE
-1027/tcp open  IIS
-
-Nmap done: 1 IP address (1 host up) scanned in 0.15 seconds
-pi@raspberrypi:~/PythonProjects/mc-test $ python v4.py 
-Testing MC connection to PLC at 192.168.3.254:1027 ...
-TX: 01FF000A4420000000000001
-RX: 8157
-TX: 01FF000A4420000000000100
-ERROR: Cannot communicate with PLC via MC protocol:
-   Command failed (both spec/swap modes): Socket error to 192.168.3.254:1027 -> [Errno 111] Connection refused
-Check:
-  - FX3U-ENET-L: Open settings → Protocol=TCP, Open System = (MC)
-  - Host Station Port No. = 1027  (must match FX config)
-  - Communication data code = ASCII / A-compatible 1E
-
-'''
