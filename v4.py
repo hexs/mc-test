@@ -390,13 +390,14 @@ class FX3U:
 
 
 def main() -> None:
+    import time
     with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True, debug=False) as plc:
         try:
             x_vals = plc.read_x(0, 8)
             print(datetime.now(), "X0..X7 =", x_vals)
         except MCError as e:
             print("MCError reading X0..X7:", e)
-
+        time.sleep(1)
         try:
             # ปิด Y0..Y7 ทีละบิต
             for i in range(8):
@@ -404,13 +405,13 @@ def main() -> None:
                 print(datetime.now(), f"Y{i} = 0")
         except MCError as e:
             print("MCError writing Y0..Y7:", e)
-
+        time.sleep(1)
         try:
             y_vals = plc.read_y(0, 8)
             print(datetime.now(), "Y0..Y7 =", y_vals)
         except MCError as e:
             print("MCError reading Y0..Y7:", e)
-
+        time.sleep(1)
         try:
             # เปิด Y0..Y7 ทีละบิต
             for i in range(8):
@@ -418,25 +419,25 @@ def main() -> None:
                 print(datetime.now(), f"Y{i} = 1")
         except MCError as e:
             print("MCError writing Y0..Y7:", e)
-
+        time.sleep(1)
         try:
             y_vals = plc.read_y(0, 8)
             print(datetime.now(), "Y0..Y7 =", y_vals)
         except MCError as e:
             print("MCError reading Y0..Y7:", e)
-
+        time.sleep(1)
         try:
             d_vals = plc.read_d(0, 10)
             print(datetime.now(), "D0..D9 =", d_vals)
         except MCError as e:
             print("MCError reading D0..D9:", e)
-
+        time.sleep(1)
         try:
             plc.write_d(5, d_vals[5] + 1)
             print(datetime.now(), "Wrote D5 =", d_vals[5] + 1)
         except MCError as e:
             print("MCError writing D5:", e)
-
+        time.sleep(1)
         try:
             d_vals = plc.read_d(0, 10)
             print(datetime.now(), "D0..D9 =", d_vals)
@@ -473,5 +474,16 @@ C:\PythonProjects\CHTDX\.venv\Scripts\python.exe C:\PythonProjects\mc-test\v4.py
 2025-11-24 10:01:20.452603 Wrote D5 = 6
 2025-11-24 10:01:20.672692 D0..D9 = [10, 11, 12, 0, 0, 6, 0, 0, 0, 0]
 
-
+run on raspberrypi
+(.venv) pi@raspberrypi:~/PythonProjects/mc-test $ python v4.py 
+/home/pi/PythonProjects/mc-test/v4.py:453: SyntaxWarning: invalid escape sequence '\P'
+  C:\PythonProjects\CHTDX\.venv\Scripts\python.exe C:\PythonProjects\mc-test\v4.py
+2025-11-24 03:14:00.686462 X0..X7 = [0, 0, 0, 0, 0, 0, 0, 0]
+MCError writing Y0..Y7: Command failed (both spec/swap modes): [Errno 111] Connection refused
+2025-11-24 03:14:04.426201 Y0..Y7 = [1, 1, 1, 1, 1, 1, 1, 1]
+MCError writing Y0..Y7: Command failed (both spec/swap modes): [Errno 111] Connection refused
+2025-11-24 03:14:08.156072 Y0..Y7 = [1, 1, 1, 1, 1, 1, 1, 1]
+2025-11-24 03:14:09.583990 D0..D9 = [10, 11, 12, 0, 0, 6, 0, 0, 0, 0]
+MCError writing D5: Command failed (both spec/swap modes): [Errno 111] Connection refused
+2025-11-24 03:14:13.313754 D0..D9 = [10, 11, 12, 0, 0, 6, 0, 0, 0, 0]
 '''
