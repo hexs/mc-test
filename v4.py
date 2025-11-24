@@ -380,18 +380,14 @@ class FX3U:
         if not vals:
             return
 
-        # Data is string of '0'/'1' characters
+        # Data: exactly N ASCII '0'/'1' chars (no extra padding)
         data = "".join("1" if v else "0" for v in vals)
-
-        # If odd number of points, pad one bit (some MC implementations require word alignment)
-        if len(data) % 2 == 1:
-            data += "0"
 
         self._cmd(0x02, self.DEV_Y, head, len(vals), data)
 
 
 def main() -> None:
-    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True, debug=False) as plc:
+    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=False, debug=False) as plc:
         # self-test สั้น ๆ เวลา start
         try:
             d0 = plc.read_d(0, 1)[0]
@@ -405,7 +401,6 @@ def main() -> None:
             return
 
         while True:
-            # อ่าน X0..X7
             x_vals = plc.read_x(0, 8)
             print(datetime.now(), "X0..X7 =", x_vals)
 
@@ -425,13 +420,10 @@ def main() -> None:
             y_vals = plc.read_y(0, 8)
             print(datetime.now(), "Y0..Y7 =", y_vals)
 
-            # อ่าน D0..D9
             d_vals = plc.read_d(0, 10)
             print(datetime.now(), "D0..D9 =", d_vals)
 
-            # เพิ่มค่า D5 ทีละ 1
             plc.write_d(5, d_vals[5] + 1)
-
             print()
 
 
