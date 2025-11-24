@@ -215,5 +215,6 @@ if __name__ == "__main__":
         # อ่าน D0..D9 อีกครั้ง
         d_vals = plc.read_d(0, 10)
         print(datetime.now(), "D0..D9 =", d_vals)
+        time.sleep(0.1)
     except Exception as e:
         print("Error: ", e)
