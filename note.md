@@ -1,4 +1,7 @@
-
+```
+i@raspberrypi:~/PythonProjects/mc-test $ python v4.py 
+MCError on startup: Command failed (both spec/swap modes): Socket error to 192.168.3.254:1027 -> [Errno 111] Connection refused
+```
 
 ```
 pi@raspberrypi:~/PythonProjects/mc-test $ cat v4.py 
