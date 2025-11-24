@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import socket
 import select
 from datetime import datetime
@@ -390,9 +391,12 @@ class FX3U:
 
 
 def main() -> None:
-    # ใช้งานจริงกับ ENET-L: per-command connection = เสถียรสุด
+    # ใช้งานจริง: เปิด keep_conn, ปิด debug
+    # Quick/run-safe change: don't open persistent connection at context enter.
+    # This avoids an immediate crash when the PLC is unreachable; each command
+    # will attempt a connection and raise MCError if network is unreachable.
     with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=False, debug=False) as plc:
-        # self-test สั้น ๆ
+        # self-test สั้น ๆ เวลา start
         try:
             d0 = plc.read_d(0, 1)[0]
             x0 = plc.read_x(0, 1)[0]
@@ -409,7 +413,7 @@ def main() -> None:
             x_vals = plc.read_x(0, 8)
             print(datetime.now(), "X0..X7 =", x_vals)
 
-            # ปิด Y0..Y7 ทีละบิต (หรือจะใช้แบบ batch ด้านล่างก็ได้)
+            # ปิด Y0..Y7 ทีละบิต
             for i in range(8):
                 plc.write_y(i, 0)
                 print(datetime.now(), f"Y{i} = 0")
@@ -435,4 +439,5 @@ def main() -> None:
             print()
 
 
-main()
+if __name__ == "__main__":
+    main()
