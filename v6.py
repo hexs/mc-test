@@ -204,6 +204,7 @@ if __name__ == "__main__":
     try:
         # เขียน D5 = D5+1
         d_vals = plc.read_d(0, 10)
+        time.sleep(0.1)
         new_val = d_vals[5] + 1
         plc.write_d(5, new_val)
         print(datetime.now(), "Wrote D5 =", new_val)
@@ -218,3 +219,4 @@ if __name__ == "__main__":
         time.sleep(0.1)
     except Exception as e:
         print("Error: ", e)
+
