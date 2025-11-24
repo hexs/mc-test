@@ -286,4 +286,39 @@ D0..D9 = [10, 11, 12, 0, 0, 123, 0, 0, 0, 0, 10, 20, 30, 0, 0, 0, 0, 0, 0, 0]
 
 เขียน D10=10, D11=20, D12=30
 
+
+
+
+((.venv312) ) pi@raspberrypi:~/PythonProjects/mc-test $ python t2.py  
+ตัวอย่างอ่าน X0..X7
+X0..X7 = [0, 0, 0, 0, 0, 0, 0, 0]
+
+ตัวอย่างอ่าน Y0..Y7
+Y0..Y7 = [1, 1, 0, 0, 0, 0, 0, 0]
+
+ตัวอย่างเขียน Y
+Traceback (most recent call last):
+  File "/home/pi/PythonProjects/mc-test/t2.py", line 250, in <module>
+    write_y(0, [1, 1])
+  File "/home/pi/PythonProjects/mc-test/t2.py", line 188, in write_y
+    _write_bits(DEV_Y, head, vals_seq)
+  File "/home/pi/PythonProjects/mc-test/t2.py", line 155, in _write_bits
+    payload = _auto_cmd_and_payload(0x02, dev_code, head, points, data_field=data_chars)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pi/PythonProjects/mc-test/t2.py", line 112, in _auto_cmd_and_payload
+    raise last_error if last_error is not None else RuntimeError("No response")
+  File "/home/pi/PythonProjects/mc-test/t2.py", line 103, in _auto_cmd_and_payload
+    rx = _exchange(cmd_hex)
+         ^^^^^^^^^^^^^^^^^^
+  File "/home/pi/PythonProjects/mc-test/t2.py", line 21, in _exchange
+    with socket.create_connection((PLC_IP, PLC_PORT), timeout=2.0) as sock:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/socket.py", line 865, in create_connection
+    raise exceptions[0]
+  File "/usr/local/lib/python3.12/socket.py", line 850, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+on windows PC can read and can write
+but on raspberrypi can read and can't write
 '''
