@@ -391,11 +391,7 @@ class FX3U:
 
 
 def main() -> None:
-    # ใช้งานจริง: เปิด keep_conn, ปิด debug
-    # Quick/run-safe change: don't open persistent connection at context enter.
-    # This avoids an immediate crash when the PLC is unreachable; each command
-    # will attempt a connection and raise MCError if network is unreachable.
-    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=False, debug=False) as plc:
+    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True, debug=False) as plc:
         # self-test สั้น ๆ เวลา start
         try:
             d0 = plc.read_d(0, 1)[0]
