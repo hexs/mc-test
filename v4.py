@@ -380,52 +380,98 @@ class FX3U:
         if not vals:
             return
 
-        # Data: exactly N ASCII '0'/'1' chars (no extra padding)
+        # Data is string of '0'/'1' characters
         data = "".join("1" if v else "0" for v in vals)
+
+        if len(data) % 2 == 1:
+            data += "0"
 
         self._cmd(0x02, self.DEV_Y, head, len(vals), data)
 
 
 def main() -> None:
     with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True, debug=False) as plc:
-        # self-test สั้น ๆ เวลา start
         try:
-            d0 = plc.read_d(0, 1)[0]
-            x0 = plc.read_x(0, 1)[0]
-            y0 = plc.read_y(0, 1)[0]
-            print("Connected to PLC")
-            print("  D0 =", d0, "  X0 =", x0, "  Y0 =", y0)
-            print()
-        except MCError as e:
-            print("MCError on startup:", e)
-            return
-
-        while True:
             x_vals = plc.read_x(0, 8)
             print(datetime.now(), "X0..X7 =", x_vals)
+        except MCError as e:
+            print("MCError reading X0..X7:", e)
 
+        try:
             # ปิด Y0..Y7 ทีละบิต
             for i in range(8):
                 plc.write_y(i, 0)
                 print(datetime.now(), f"Y{i} = 0")
+        except MCError as e:
+            print("MCError writing Y0..Y7:", e)
 
+        try:
             y_vals = plc.read_y(0, 8)
             print(datetime.now(), "Y0..Y7 =", y_vals)
+        except MCError as e:
+            print("MCError reading Y0..Y7:", e)
 
+        try:
             # เปิด Y0..Y7 ทีละบิต
             for i in range(8):
                 plc.write_y(i, 1)
                 print(datetime.now(), f"Y{i} = 1")
+        except MCError as e:
+            print("MCError writing Y0..Y7:", e)
 
+        try:
             y_vals = plc.read_y(0, 8)
             print(datetime.now(), "Y0..Y7 =", y_vals)
+        except MCError as e:
+            print("MCError reading Y0..Y7:", e)
 
+        try:
             d_vals = plc.read_d(0, 10)
             print(datetime.now(), "D0..D9 =", d_vals)
+        except MCError as e:
+            print("MCError reading D0..D9:", e)
 
+        try:
             plc.write_d(5, d_vals[5] + 1)
-            print()
+            print(datetime.now(), "Wrote D5 =", d_vals[5] + 1)
+        except MCError as e:
+            print("MCError writing D5:", e)
 
+        try:
+            d_vals = plc.read_d(0, 10)
+            print(datetime.now(), "D0..D9 =", d_vals)
+        except MCError as e:
+            print("MCError reading D0..D9:", e)
 
 if __name__ == "__main__":
     main()
+
+
+'''
+run on windows PC
+C:\PythonProjects\CHTDX\.venv\Scripts\python.exe C:\PythonProjects\mc-test\v4.py 
+2025-11-24 10:01:07.664831 X0..X7 = [0, 0, 0, 0, 0, 0, 0, 0]
+2025-11-24 10:01:11.945349 Y0 = 0
+2025-11-24 10:01:12.161519 Y1 = 0
+2025-11-24 10:01:12.396145 Y2 = 0
+2025-11-24 10:01:12.631277 Y3 = 0
+2025-11-24 10:01:12.851624 Y4 = 0
+2025-11-24 10:01:13.068965 Y5 = 0
+2025-11-24 10:01:13.288404 Y6 = 0
+2025-11-24 10:01:13.505218 Y7 = 0
+2025-11-24 10:01:13.738704 Y0..Y7 = [0, 0, 0, 0, 0, 0, 0, 0]
+2025-11-24 10:01:13.957468 Y0 = 1
+2025-11-24 10:01:14.191432 Y1 = 1
+2025-11-24 10:01:14.412073 Y2 = 1
+2025-11-24 10:01:14.632735 Y3 = 1
+2025-11-24 10:01:14.852889 Y4 = 1
+2025-11-24 10:01:15.071526 Y5 = 1
+2025-11-24 10:01:15.291203 Y6 = 1
+2025-11-24 10:01:15.507996 Y7 = 1
+2025-11-24 10:01:15.741191 Y0..Y7 = [1, 1, 1, 1, 1, 1, 1, 1]
+2025-11-24 10:01:16.193071 D0..D9 = [10, 11, 12, 0, 0, 5, 0, 0, 0, 0]
+2025-11-24 10:01:20.452603 Wrote D5 = 6
+2025-11-24 10:01:20.672692 D0..D9 = [10, 11, 12, 0, 0, 6, 0, 0, 0, 0]
+
+
+'''
