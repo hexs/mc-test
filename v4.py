@@ -387,7 +387,7 @@ class FX3U:
 
 
 def main() -> None:
-    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=False, debug=False) as plc:
+    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True, debug=False) as plc:
         # self-test สั้น ๆ เวลา start
         try:
             d0 = plc.read_d(0, 1)[0]
