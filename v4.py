@@ -251,7 +251,7 @@ class FX3U:
         self._cmd(0x02, self.DEV_Y, head, points, data_field=data_chars)
 
 
-def main() -> None:
+if __name__ == "__main__":
     import time
 
     plc_ip = "192.168.3.254"
@@ -330,7 +330,3 @@ def main() -> None:
     finally:
         # ไม่มี persistent socket เลย ไม่ต้อง close อะไรเพิ่ม
         pass
-
-
-if __name__ == "__main__":
-    main()

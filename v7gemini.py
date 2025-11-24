@@ -1,5 +1,6 @@
+# FX3U-16M + FX3U-ENET-L  (MC protocol A-compatible 1E, ASCII)
+
 import socket
-import time
 from typing import List, Sequence
 
 
@@ -34,15 +35,12 @@ class FX3U:
 
     def _exchange(self, cmd_hex: str) -> str:
         if self.debug: print(f"\nTX: {cmd_hex}")
-
-        # Automatic Reconnection Logic
         try:
             self.sock.sendall(cmd_hex.encode("ascii"))
             data = self.sock.recv(4096)
         except (BrokenPipeError, ConnectionResetError, socket.timeout, OSError) as e:
             if self.debug: print(f"Socket error ({e}), reconnecting...")
             self._connect()
-            # Try once more after reconnecting
             self.sock.sendall(cmd_hex.encode("ascii"))
             data = self.sock.recv(4096)
 
@@ -50,8 +48,6 @@ class FX3U:
         rx = data.decode("ascii", errors="ignore").strip()
         if self.debug: print("Decoded     :", rx)
         return rx
-
-    # ... [Keep the rest of your methods (_parse_mc_payload, read_x, etc.) exactly the same] ...
 
     def _parse_mc_payload(self, rx: str, expect_ok: bool = True) -> str:
         if len(rx) < 4:
@@ -127,73 +123,42 @@ class FX3U:
 if __name__ == "__main__":
     from datetime import datetime
 
-    plc = FX3U("192.168.3.254", 1027, debug=True)
+    plc = FX3U("192.168.3.254", 1027)
 
-    try:
-        x_vals = plc.read_x(0, 8)
-        print(datetime.now(), "X0..X7 =", x_vals)
-        # time.sleep(0.1)
-    except Exception as e:
-        print("Error: ", e)
+    # อ่าน X0..X7
+    x_vals = plc.read_x(0, 8)
+    print(datetime.now(), "X0..X7 =", x_vals)
 
-    try:
-        # ปิด Y0..Y7 ทีละบิต
-        for i in range(8):
-            plc.write_y(i, 0)
-            print(datetime.now(), f"Y{i} = 0")
-#             time.sleep(0.1)
-    except Exception as e:
-        print("Error: ", e)
+    # ปิด Y0..Y7 ทีละบิต
+    for i in range(8):
+        plc.write_y(i, 0)
+        print(datetime.now(), f"Y{i} = 0")
 
-    try:
-        # อ่าน Y0..Y7
-        y_vals = plc.read_y(0, 8)
-        print(datetime.now(), "Y0..Y7 =", y_vals)
-#         time.sleep(0.1)
-    except Exception as e:
-        print("Error: ", e)
+    # อ่าน Y0..Y7
+    y_vals = plc.read_y(0, 8)
+    print(datetime.now(), "Y0..Y7 =", y_vals)
 
-    try:
-        # เปิด Y0..Y7 ทีละบิต
-        for i in range(8):
-            plc.write_y(i, 1)
-            print(datetime.now(), f"Y{i} = 1")
-#             time.sleep(0.1)
-    except Exception as e:
-        print("Error: ", e)
+    # เปิด Y0..Y7 ทีละบิต
+    for i in range(8):
+        plc.write_y(i, 1)
+        print(datetime.now(), f"Y{i} = 1")
 
-    try:
-        # อ่าน Y0..Y7 อีกครั้ง
-        y_vals = plc.read_y(0, 8)
-        print(datetime.now(), "Y0..Y7 =", y_vals)
-#         time.sleep(0.1)
-    except Exception as e:
-        print("Error: ", e)
+    # อ่าน Y0..Y7 อีกครั้ง
+    y_vals = plc.read_y(0, 8)
+    print(datetime.now(), "Y0..Y7 =", y_vals)
 
-    try:
-        # อ่าน D0..D9
-        d_vals = plc.read_d(0, 10)
-        print(datetime.now(), "D0..D9 =", d_vals)
-#         time.sleep(0.1)
-    except Exception as e:
-        print("Error: ", e)
+    # อ่าน D0..D9
+    d_vals = plc.read_d(0, 10)
+    print(datetime.now(), "D0..D9 =", d_vals)
 
-    try:
-        # เขียน D5 = D5+1
-        d_vals = plc.read_d(0, 10)
-#         time.sleep(0.1)
-        new_val = d_vals[5] + 1
-        plc.write_d(5, new_val)
-        print(datetime.now(), "Wrote D5 =", new_val)
-#         time.sleep(0.1)
-    except Exception as e:
-        print("Error: ", e)
+    # เขียน D5 = D5+1
+    d_vals = plc.read_d(0, 10)
+    new_val = d_vals[5] + 1
+    plc.write_d(5, new_val)
+    print(datetime.now(), "Wrote D5 =", new_val)
 
-    try:
-        # อ่าน D0..D9 อีกครั้ง
-        d_vals = plc.read_d(0, 10)
-        print(datetime.now(), "D0..D9 =", d_vals)
-#         time.sleep(0.1)
-    except Exception as e:
-        print("Error: ", e)
+    # อ่าน D0..D9 อีกครั้ง
+    d_vals = plc.read_d(0, 10)
+    print(datetime.now(), "D0..D9 =", d_vals)
 
+    plc.close()

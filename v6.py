@@ -6,9 +6,9 @@ from typing import List, Sequence
 
 
 class FX3U:
-    DEV_D = "4420"  # D
-    DEV_X = "5820"  # X
-    DEV_Y = "5920"  # Y
+    DEV_D = "4420"
+    DEV_X = "5820"
+    DEV_Y = "5920"
 
     def __init__(self, ip: str, port: int, debug=False) -> None:
         self.ip = ip
@@ -39,13 +39,7 @@ class FX3U:
 
         return rx[4:]
 
-    def _build_1e_cmd(
-            self,
-            cmd: int,
-            dev_code: str,
-            head: int,
-            points: int,
-    ) -> str:
+    def _build_1e_cmd(self, cmd: int, dev_code: str, head: int, points: int, ) -> str:
         header = f"{cmd:02X}FF000A"  # cmd, PC=FF, timer=000A
         head_hex = f"{head & 0xFFFFFFFF:08X}"
 
@@ -219,4 +213,3 @@ if __name__ == "__main__":
         time.sleep(0.1)
     except Exception as e:
         print("Error: ", e)
-
