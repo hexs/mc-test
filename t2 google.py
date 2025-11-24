@@ -1,3 +1,4 @@
+# t2.py
 # FX3U-16M + FX3U-ENET-L  (MC protocol A-compatible 1E, ASCII)
 
 import socket
@@ -16,7 +17,6 @@ DEV_Y = "5920"  # Y
 # --------- low-level helpers ---------
 
 def _exchange(cmd_hex: str) -> str:
-    """Send one MC ASCII command (hex string) and return decoded ASCII reply."""
     # print(f"TX: {cmd_hex}")
     with socket.create_connection((PLC_IP, PLC_PORT), timeout=2.0) as sock:
         sock.sendall(cmd_hex.encode("ascii"))
@@ -29,10 +29,6 @@ def _exchange(cmd_hex: str) -> str:
 
 
 def _parse_mc_payload(rx: str, expect_ok: bool = True) -> str:
-    """
-    Common parser: returns payload (after 4 chars) when end_code == '00'.
-    subheader is usually 80/81/82/83 etc, we just print it.
-    """
     if len(rx) < 4:
         raise RuntimeError(f"Response too short: {rx!r}")
 
@@ -46,17 +42,12 @@ def _parse_mc_payload(rx: str, expect_ok: bool = True) -> str:
     return rx[4:]
 
 
-# --- MODIFIED: Removed swap_points argument, fixed to the likely working format ---
 def _build_1e_cmd(
     cmd: int,
     dev_code: str,
     head: int,
     points: int,
 ) -> str:
-    """
-    Build A-compatible 1E ASCII frame (no data part), using low/high byte order
-    for the points field (…PPHH). e.g. "01FF000A4420000000000500".
-    """
     header = f"{cmd:02X}FF000A"      # cmd, PC=FF, timer=000A
     head_hex = f"{head & 0xFFFFFFFF:08X}"
 
@@ -68,7 +59,6 @@ def _build_1e_cmd(
     return header + dev_code + head_hex + pts_hex
 
 
-# --- MODIFIED: Removed automatic retry logic, fixed to single logic ---
 def _execute_cmd(
     cmd: int,
     dev_code: str,
@@ -79,7 +69,6 @@ def _execute_cmd(
     """
     Build and execute command with the fixed format, returns payload.
     """
-    # Uses the single, fixed format _build_1e_cmd function
     cmd_hex = _build_1e_cmd(cmd, dev_code, head, points)
     if data_field:
         cmd_hex += data_field
@@ -89,19 +78,16 @@ def _execute_cmd(
     return payload
 
 
-# --- Update function calls to use the new helper function name _execute_cmd ---
 
 # --------- bit devices: X / Y ---------
 
 def _read_bits(dev_code: str, head: int, points: int) -> List[int]:
-    # ...
     if points <= 0:
         return []
 
     # cmd 0x00 = batch read / bit units
-    payload = _execute_cmd(0x00, dev_code, head, points) # Changed helper call
+    payload = _execute_cmd(0x00, dev_code, head, points)
 
-    # ... (rest of function remains same)
     if len(payload) < points:
         raise RuntimeError(f"Not enough bit data, payload={payload!r}")
 
@@ -110,7 +96,6 @@ def _read_bits(dev_code: str, head: int, points: int) -> List[int]:
 
 
 def _write_bits(dev_code: str, head: int, values: Sequence[int | bool]) -> None:
-    # ...
     vals = [1 if bool(v) else 0 for v in values]
     points = len(vals)
     if points == 0:
@@ -121,9 +106,7 @@ def _write_bits(dev_code: str, head: int, values: Sequence[int | bool]) -> None:
         data_chars += "0"   # dummy
 
     # cmd 0x02 = batch write / bit units
-    payload = _execute_cmd(0x02, dev_code, head, points, data_field=data_chars) # Changed helper call
-
-    # ... (rest of function remains same)
+    payload = _execute_cmd(0x02, dev_code, head, points, data_field=data_chars)
     # print("Write payload:", payload)
 
 
@@ -157,14 +140,12 @@ def write_y(head: int, values: Sequence[int | bool] | int | bool) -> None:
     _write_bits(DEV_Y, head, vals_seq)
 
 def read_d(head: int, words: int = 1) -> List[int]:
-    # ...
     if words <= 0:
         return []
 
     # cmd 0x01 = batch read / word units
-    payload = _execute_cmd(0x01, DEV_D, head, words) # Changed helper call
+    payload = _execute_cmd(0x01, DEV_D, head, words)
 
-    # ... (rest of function remains same)
     if len(payload) < words * 4:
         raise RuntimeError(f"Not enough word data, payload={payload!r}")
 
@@ -176,7 +157,6 @@ def read_d(head: int, words: int = 1) -> List[int]:
 
 
 def write_d(head: int, values: Sequence[int] | int) -> None:
-    # ...
     if isinstance(values, int):
         values = [values]
 
@@ -187,7 +167,7 @@ def write_d(head: int, values: Sequence[int] | int) -> None:
     data_field = "".join(f"{v & 0xFFFF:04X}" for v in values)
 
     # cmd 0x03 = batch write / word units
-    payload = _execute_cmd(0x03, DEV_D, head, words, data_field=data_field) # Changed helper call
+    payload = _execute_cmd(0x03, DEV_D, head, words, data_field=data_field)
     # print("Write D payload:", payload)
 
 

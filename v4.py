@@ -1,7 +1,11 @@
+# v4.py
+# FX3U-16M + FX3U-ENET-L (MC protocol A-compatible 1E, ASCII)
+# Class-based wrapper using the same stable logic as t2.py
+# Works on both Windows PC and Raspberry Pi
+
 import socket
-import select
 from datetime import datetime
-from typing import Dict, List, Sequence, Tuple, Union, Optional
+from typing import List, Sequence, Union, Optional
 
 
 class MCError(RuntimeError):
@@ -15,8 +19,7 @@ class FX3U:
     MC protocol A-compatible 1E, ASCII.
 
     Features:
-    - Auto-detect "points mode" (normal vs swapped) per (cmd, device).
-    - Optional persistent connection for speed (keep_conn=True).
+    - Per-command TCP connection (most stable for ENET-L).
     - Simple high-level methods:
         * read_d / write_d
         * read_x / read_y / write_y
@@ -26,164 +29,57 @@ class FX3U:
     DEV_X = "5820"  # X input (bit)
     DEV_Y = "5920"  # Y output (bit)
 
-    # (cmd:int, dev_code:str) -> swap_points:bool
-    _POINTS_MODE_CACHE: Dict[Tuple[int, str], bool] = {}
-
     def __init__(
-            self,
-            ip: str,
-            port: int,
-            timeout: float = 1.5,
-            keep_conn: bool = True,
-            debug: bool = False,
+        self,
+        ip: str,
+        port: int,
+        timeout: float = 1.5,
+        debug: bool = False,
     ):
         """
-        ip        : IP address of FX3U-ENET-L (e.g. "192.168.3.254")
-        port      : MC protocol port (e.g. 1027)
-        timeout   : socket timeout per command (seconds)
-        keep_conn : reuse single TCP connection for multiple commands if True
-        debug     : print raw TX/RX frames if True
+        ip      : IP address of FX3U-ENET-L (e.g. "192.168.3.254")
+        port    : MC protocol port (e.g. 1027)
+        timeout : socket timeout per command (seconds)
+        debug   : print raw TX/RX frames if True
         """
         self.ip = ip
         self.port = port
         self.timeout = timeout
-        self.keep_conn = keep_conn
         self.debug = debug
 
-        # persistent socket (when keep_conn=True)
-        self._sock: Optional[socket.socket] = None
-
     # ------------------------------------------------------------------
-    # Context manager & basic connection management
+    # Low-level: TCP exchange (per-command connection)
     # ------------------------------------------------------------------
-    def __enter__(self) -> "FX3U":
-        if self.keep_conn:
-            self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.close()
-
-    def connect(self, timeout: Optional[float] = None) -> None:
-        """
-        Open persistent connection (only used when keep_conn=True).
-        Safe to call multiple times.
-        """
-        if not self.keep_conn:
-            # per-command connection → do nothing
-            return
-
-        if self._sock is not None:
-            # already connected
-            return
-
-        to = timeout if timeout is not None else self.timeout
-        sock = socket.create_connection((self.ip, self.port), timeout=to)
-        sock.settimeout(self.timeout)
-        self._sock = sock
-
-    def close(self) -> None:
-        """Close persistent connection (if any)."""
-        if self._sock is not None:
-            try:
-                self._sock.close()
-            finally:
-                self._sock = None
-
-    # ------------------------------------------------------------------
-    # Low-level send/recv
-    # ------------------------------------------------------------------
-    def _recv_all_from_sock(self, sock: socket.socket) -> str:
-        """
-        Receive full ASCII MC response.
-        1) Wait for first chunk with normal timeout.
-        2) Then use a short "linger" window to collect all remaining bytes.
-        """
-        try:
-            first = sock.recv(4096)
-        except socket.timeout:
-            raise MCError("Timeout waiting for response from PLC")
-        except OSError as e:
-            raise MCError(f"Socket recv error: {e}") from e
-
-        if not first:
-            raise MCError("Empty response from PLC")
-
-        chunks: List[bytes] = [first]
-
-        # short "linger" to gather any remaining data in the buffer
-        short_timeout = 0.2  # ขยายจาก 0.05 → 0.2 เผื่อ PLC ช้า
-        while True:
-            r, _, _ = select.select([sock], [], [], short_timeout)
-            if not r:
-                break
-            try:
-                part = sock.recv(4096)
-            except socket.timeout:
-                break
-            if not part:
-                break
-            chunks.append(part)
-
-        rx = b"".join(chunks).decode("ascii", errors="ignore").strip()
-        if not rx:
-            raise MCError("Empty/invalid ASCII response from PLC")
-        return rx
-
     def _exchange(self, cmd_hex: str) -> str:
         """
-        Send one MC command (ASCII hex string) and return full ASCII response.
-        Handles persistent connection or per-command connection.
+        Send one MC ASCII command (hex string) and return decoded ASCII reply.
+        Opens a new TCP connection per command (most stable for ENET-L).
         """
         if self.debug:
             print(f"TX: {cmd_hex}")
 
-        if self.keep_conn:
-            # Ensure connected
-            if self._sock is None:
-                self.connect()
+        try:
+            with socket.create_connection((self.ip, self.port), timeout=self.timeout) as sock:
+                sock.sendall(cmd_hex.encode("ascii"))
+                data = sock.recv(4096)
+        except OSError as e:
+            raise MCError(f"Socket error to {self.ip}:{self.port} -> {e}") from e
 
-            assert self._sock is not None
-            try:
-                self._sock.settimeout(self.timeout)
-                self._sock.sendall(cmd_hex.encode("ascii"))
-                rx = self._recv_all_from_sock(self._sock)
-                if self.debug:
-                    print(f"RX: {rx}")
-                return rx
-            except (OSError, MCError) as e:
-                # Try to recover by re-opening connection once
-                try:
-                    self.close()
-                    self.connect()
-                    assert self._sock is not None
-                    self._sock.settimeout(self.timeout)
-                    self._sock.sendall(cmd_hex.encode("ascii"))
-                    rx = self._recv_all_from_sock(self._sock)
-                    if self.debug:
-                        print(f"RX(retry): {rx}")
-                    return rx
-                except Exception as e2:
-                    self.close()
-                    raise MCError(f"Socket error to {self.ip}:{self.port} -> {e2}") from e2
-        else:
-            # Per-command connection
-            try:
-                with socket.create_connection((self.ip, self.port), timeout=self.timeout) as sock:
-                    sock.settimeout(self.timeout)
-                    sock.sendall(cmd_hex.encode("ascii"))
-                    rx = self._recv_all_from_sock(sock)
-                    if self.debug:
-                        print(f"RX: {rx}")
-                    return rx
-            except OSError as e:
-                raise MCError(f"Socket error to {self.ip}:{self.port} -> {e}") from e
+        if not data:
+            raise MCError("Empty response from PLC")
+
+        rx = data.decode("ascii", errors="ignore").strip()
+
+        if self.debug:
+            print(f"RX: {rx}")
+
+        return rx
 
     # ------------------------------------------------------------------
-    # MC frame building & parsing
+    # MC frame building & parsing (same behavior as t2.py)
     # ------------------------------------------------------------------
     @staticmethod
-    def _parse(rx: str) -> str:
+    def _parse_mc_payload(rx: str, expect_ok: bool = True) -> str:
         """
         Parse MC 1E ASCII response.
         Format (ASCII hex):
@@ -194,100 +90,60 @@ class FX3U:
         if len(rx) < 4:
             raise MCError(f"Response too short: {rx!r}")
 
+        subheader = rx[0:2]
         end_code = rx[2:4]
-        if end_code != "00":
-            raise MCError(f"MC EndCode=0x{end_code}, raw={rx!r}")
+
+        if expect_ok and end_code != "00":
+            raise MCError(f"MC protocol error, end_code=0x{end_code}, raw={rx!r}")
 
         return rx[4:]
 
     @staticmethod
-    def _build_1e_cmd_header(
-            cmd: int,
-            dev_code: str,
-            head: int,
-            count: int,
-            *,
-            swap_points: bool = False,
+    def _build_1e_cmd(
+        cmd: int,
+        dev_code: str,
+        head: int,
+        points: int,
     ) -> str:
         """
         Build MC 1E ASCII command header (without data part).
 
-        cmd       : command code
-                    00H = batch read (bit)
-                    01H = batch read (word)
-                    02H = batch write (bit)
-                    03H = batch write (word)
-        dev_code  : device code string (e.g. "4420", "5820", "5920")
-        head      : device head address (decimal int, will be formatted as 8-digit hex)
-        count     : number of points/words
-        swap_points: if True, point count bytes are swapped (to handle ENET-L quirk)
+        ใช้รูปแบบเดียวกับ t2.py:
+        - header = "{cmd:02X}FF000A"
+        - head   = 8-digit hex
+        - points = low/high byte สลับกัน เช่น 1 -> "0100"
         """
         if not (0 <= cmd <= 0xFF):
             raise MCError(f"Invalid cmd: {cmd}")
 
-        # "FF000A" = PC No.=FF, monitor timer=000A (ASCII: 'FF000A')
-        header = f"{cmd:02X}FF000A"
-
+        header = f"{cmd:02X}FF000A"      # cmd, PC=FF, timer=000A
         head_hex = f"{head & 0xFFFFFFFF:08X}"
 
-        if not swap_points:
-            cnt_hex = f"{count & 0xFFFF:04X}"
-        else:
-            # Swap low/high bytes of count
-            lo = count & 0xFF
-            hi = (count >> 8) & 0xFF
-            cnt_hex = f"{lo:02X}{hi:02X}"
+        # Force low/high byte order (e.g. 0005 -> 0500) – same as t2.py
+        lo = points & 0xFF
+        hi = (points >> 8) & 0xFF
+        pts_hex = f"{lo:02X}{hi:02X}"
 
-        return header + dev_code + head_hex + cnt_hex
+        return header + dev_code + head_hex + pts_hex
 
     def _cmd(
-            self,
-            cmd: int,
-            dev: str,
-            head: int,
-            count: int,
-            data: Optional[str] = None,
+        self,
+        cmd: int,
+        dev_code: str,
+        head: int,
+        points: int,
+        data_field: Optional[str] = None,
     ) -> str:
         """
-        Full MC command:
-          1) Build header
-          2) Append data if any
-          3) Auto-try normal / swapped "points" format per (cmd, dev)
-          4) Cache working mode in _POINTS_MODE_CACHE
-        Return payload string (already EndCode-checked).
+        Build and execute command with the fixed format (t2.py style), returns payload.
         """
-        key = (cmd, dev)
+        cmd_hex = self._build_1e_cmd(cmd, dev_code, head, points)
+        if data_field:
+            cmd_hex += data_field
 
-        if key in self._POINTS_MODE_CACHE:
-            modes: List[Tuple[str, bool]] = [("cached", self._POINTS_MODE_CACHE[key])]
-        else:
-            modes = [("spec", False), ("swap", True)]
-
-        last_err: Optional[Exception] = None
-
-        for name, swap in modes:
-            frame = self._build_1e_cmd_header(cmd, dev, head, count, swap_points=swap)
-            if data is not None:
-                frame += data
-
-            try:
-                rx = self._exchange(frame)
-                payload = self._parse(rx)
-
-                # Cache points mode (only when we are in detection stage)
-                if name in ("spec", "swap"):
-                    self._POINTS_MODE_CACHE[key] = swap
-
-                return payload
-
-            except Exception as e:
-                last_err = e
-                if name == "cached":
-                    # Cached mode failed, clear and retry with spec/swap
-                    self._POINTS_MODE_CACHE.pop(key, None)
-                    return self._cmd(cmd, dev, head, count, data)
-
-        raise MCError(f"Command failed (both spec/swap modes): {last_err}")
+        rx = self._exchange(cmd_hex)
+        payload = self._parse_mc_payload(rx, expect_ok=True)
+        return payload
 
     # ------------------------------------------------------------------
     # D register (word) operations
@@ -300,6 +156,7 @@ class FX3U:
         if words <= 0:
             return []
 
+        # cmd 0x01 = batch read / word units
         payload = self._cmd(0x01, self.DEV_D, head, words)
 
         expected_len = words * 4  # 4 hex chars per word
@@ -309,13 +166,12 @@ class FX3U:
                 f"got {len(payload)}, payload={payload!r}"
             )
 
-        values: List[int] = []
+        vals: List[int] = []
         for i in range(words):
-            start = i * 4
-            chunk = payload[start:start + 4]
-            values.append(int(chunk, 16))
+            s = payload[i * 4: i * 4 + 4]
+            vals.append(int(s, 16))
 
-        return values
+        return vals
 
     def write_d(self, head: int, values: Union[Sequence[int], int]) -> None:
         """
@@ -331,17 +187,20 @@ class FX3U:
         if not vals:
             return
 
-        data = "".join(f"{v & 0xFFFF:04X}" for v in vals)
-        self._cmd(0x03, self.DEV_D, head, len(vals), data)
+        data_field = "".join(f"{v & 0xFFFF:04X}" for v in vals)
+
+        # cmd 0x03 = batch write / word units
+        self._cmd(0x03, self.DEV_D, head, len(vals), data_field=data_field)
 
     # ------------------------------------------------------------------
     # Bit operations (X/Y)
     # ------------------------------------------------------------------
-    def _read_bits(self, dev: str, head: int, points: int) -> List[int]:
+    def _read_bits(self, dev_code: str, head: int, points: int) -> List[int]:
         if points <= 0:
             return []
 
-        payload = self._cmd(0x00, dev, head, points)
+        # cmd 0x00 = batch read / bit units
+        payload = self._cmd(0x00, dev_code, head, points)
 
         if len(payload) < points:
             raise MCError(
@@ -349,12 +208,15 @@ class FX3U:
                 f"got {len(payload)}, payload={payload!r}"
             )
 
-        return [1 if c == "1" else 0 for c in payload[:points]]
+        bits = [1 if c == "1" else 0 for c in payload[:points]]
+        return bits
 
     def read_x(self, head: int, points: int) -> List[int]:
         """
         Read X input bits.
-        Example: read_x(0, 8) -> X0..X7
+        หมายเหตุ: X/Y เป็นเลขฐาน 8 ในโปรแกรม PLC
+        - ถ้าอยากอ่าน X0..X7      -> read_x(0, 8)
+        - ถ้าอยากอ่าน X20(octal)  -> read_x(int("20", 8), 8)
         """
         return self._read_bits(self.DEV_X, head, points)
 
@@ -376,120 +238,99 @@ class FX3U:
             values = [values]
 
         vals = [1 if bool(v) else 0 for v in values]
-        if not vals:
+        points = len(vals)
+        if points == 0:
             return
 
-        # Data is string of '0'/'1' characters
-        data = "".join("1" if v else "0" for v in vals)
+        data_chars = "".join("1" if v else "0" for v in vals)
+        if points % 2 == 1:
+            # dummy bit ให้เป็นเลขคู่ เหมือน t2.py
+            data_chars += "0"
 
-        if len(data) % 2 == 1:
-            data += "0"
-
-        self._cmd(0x02, self.DEV_Y, head, len(vals), data)
+        # cmd 0x02 = batch write / bit units
+        self._cmd(0x02, self.DEV_Y, head, points, data_field=data_chars)
 
 
 def main() -> None:
     import time
-    with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True, debug=False) as plc:
-        plc.write_y(0, 0)
-        y0 = plc.read_y(0, 1)
-        print(y0)
-        plc.write_y(0, 1)
-        y0 = plc.read_y(0, 1)
-        print(y0)
 
-        # try:
-        #     x_vals = plc.read_x(0, 8)
-        #     print(datetime.now(), "X0..X7 =", x_vals)
-        # except MCError as e:
-        #     print("MCError reading X0..X7:", e)
-        # time.sleep(1)
-        # try:
-        #     # ปิด Y0..Y7 ทีละบิต
-        #     for i in range(8):
-        #         plc.write_y(i, 0)
-        #         print(datetime.now(), f"Y{i} = 0")
-        # except MCError as e:
-        #     print("MCError writing Y0..Y7:", e)
-        # time.sleep(1)
-        # try:
-        #     y_vals = plc.read_y(0, 8)
-        #     print(datetime.now(), "Y0..Y7 =", y_vals)
-        # except MCError as e:
-        #     print("MCError reading Y0..Y7:", e)
-        # time.sleep(1)
-        # try:
-        #     # เปิด Y0..Y7 ทีละบิต
-        #     for i in range(8):
-        #         plc.write_y(i, 1)
-        #         print(datetime.now(), f"Y{i} = 1")
-        # except MCError as e:
-        #     print("MCError writing Y0..Y7:", e)
-        # time.sleep(1)
-        # try:
-        #     y_vals = plc.read_y(0, 8)
-        #     print(datetime.now(), "Y0..Y7 =", y_vals)
-        # except MCError as e:
-        #     print("MCError reading Y0..Y7:", e)
-        # time.sleep(1)
-        # try:
-        #     d_vals = plc.read_d(0, 10)
-        #     print(datetime.now(), "D0..D9 =", d_vals)
-        # except MCError as e:
-        #     print("MCError reading D0..D9:", e)
-        # time.sleep(1)
-        # try:
-        #     plc.write_d(5, d_vals[5] + 1)
-        #     print(datetime.now(), "Wrote D5 =", d_vals[5] + 1)
-        # except MCError as e:
-        #     print("MCError writing D5:", e)
-        # time.sleep(1)
-        # try:
-        #     d_vals = plc.read_d(0, 10)
-        #     print(datetime.now(), "D0..D9 =", d_vals)
-        # except MCError as e:
-        #     print("MCError reading D0..D9:", e)
+    plc_ip = "192.168.3.254"
+    plc_port = 1027
+
+    plc = FX3U(plc_ip, plc_port, timeout=1.5, debug=False)
+
+    try:
+        # อ่าน X0..X7
+        try:
+            x_vals = plc.read_x(0, 8)
+            print(datetime.now(), "X0..X7 =", x_vals)
+        except MCError as e:
+            print("MCError reading X0..X7:", e)
+        time.sleep(1)
+
+        # ปิด Y0..Y7 ทีละบิต
+        try:
+            for i in range(8):
+                plc.write_y(i, 0)
+                print(datetime.now(), f"Y{i} = 0")
+        except MCError as e:
+            print("MCError writing Y0..Y7 (OFF loop):", e)
+        time.sleep(1)
+
+        # อ่าน Y0..Y7
+        try:
+            y_vals = plc.read_y(0, 8)
+            print(datetime.now(), "Y0..Y7 =", y_vals)
+        except MCError as e:
+            print("MCError reading Y0..Y7:", e)
+        time.sleep(1)
+
+        # เปิด Y0..Y7 ทีละบิต
+        try:
+            for i in range(8):
+                plc.write_y(i, 1)
+                print(datetime.now(), f"Y{i} = 1")
+        except MCError as e:
+            print("MCError writing Y0..Y7 (ON loop):", e)
+        time.sleep(1)
+
+        # อ่าน Y0..Y7 อีกครั้ง
+        try:
+            y_vals = plc.read_y(0, 8)
+            print(datetime.now(), "Y0..Y7 =", y_vals)
+        except MCError as e:
+            print("MCError reading Y0..Y7:", e)
+        time.sleep(1)
+
+        # อ่าน D0..D9
+        try:
+            d_vals = plc.read_d(0, 10)
+            print(datetime.now(), "D0..D9 =", d_vals)
+        except MCError as e:
+            print("MCError reading D0..D9:", e)
+        time.sleep(1)
+
+        # เขียน D5 = D5+1
+        try:
+            d_vals = plc.read_d(0, 10)
+            new_val = d_vals[5] + 1
+            plc.write_d(5, new_val)
+            print(datetime.now(), "Wrote D5 =", new_val)
+        except MCError as e:
+            print("MCError writing D5:", e)
+        time.sleep(1)
+
+        # อ่าน D0..D9 อีกครั้ง
+        try:
+            d_vals = plc.read_d(0, 10)
+            print(datetime.now(), "D0..D9 =", d_vals)
+        except MCError as e:
+            print("MCError reading D0..D9:", e)
+
+    finally:
+        # ไม่มี persistent socket เลย ไม่ต้อง close อะไรเพิ่ม
+        pass
 
 
 if __name__ == "__main__":
     main()
-
-'''
-run on windows PC
-C:\PythonProjects\CHTDX\.venv\Scripts\python.exe C:\PythonProjects\mc-test\v4.py 
-2025-11-24 10:01:07.664831 X0..X7 = [0, 0, 0, 0, 0, 0, 0, 0]
-2025-11-24 10:01:11.945349 Y0 = 0
-2025-11-24 10:01:12.161519 Y1 = 0
-2025-11-24 10:01:12.396145 Y2 = 0
-2025-11-24 10:01:12.631277 Y3 = 0
-2025-11-24 10:01:12.851624 Y4 = 0
-2025-11-24 10:01:13.068965 Y5 = 0
-2025-11-24 10:01:13.288404 Y6 = 0
-2025-11-24 10:01:13.505218 Y7 = 0
-2025-11-24 10:01:13.738704 Y0..Y7 = [0, 0, 0, 0, 0, 0, 0, 0]
-2025-11-24 10:01:13.957468 Y0 = 1
-2025-11-24 10:01:14.191432 Y1 = 1
-2025-11-24 10:01:14.412073 Y2 = 1
-2025-11-24 10:01:14.632735 Y3 = 1
-2025-11-24 10:01:14.852889 Y4 = 1
-2025-11-24 10:01:15.071526 Y5 = 1
-2025-11-24 10:01:15.291203 Y6 = 1
-2025-11-24 10:01:15.507996 Y7 = 1
-2025-11-24 10:01:15.741191 Y0..Y7 = [1, 1, 1, 1, 1, 1, 1, 1]
-2025-11-24 10:01:16.193071 D0..D9 = [10, 11, 12, 0, 0, 5, 0, 0, 0, 0]
-2025-11-24 10:01:20.452603 Wrote D5 = 6
-2025-11-24 10:01:20.672692 D0..D9 = [10, 11, 12, 0, 0, 6, 0, 0, 0, 0]
-
-run on raspberrypi
-(.venv) pi@raspberrypi:~/PythonProjects/mc-test $ python v4.py 
-/home/pi/PythonProjects/mc-test/v4.py:453: SyntaxWarning: invalid escape sequence '\P'
-  C:\PythonProjects\CHTDX\.venv\Scripts\python.exe C:\PythonProjects\mc-test\v4.py
-2025-11-24 03:14:00.686462 X0..X7 = [0, 0, 0, 0, 0, 0, 0, 0]
-MCError writing Y0..Y7: Command failed (both spec/swap modes): [Errno 111] Connection refused
-2025-11-24 03:14:04.426201 Y0..Y7 = [1, 1, 1, 1, 1, 1, 1, 1]
-MCError writing Y0..Y7: Command failed (both spec/swap modes): [Errno 111] Connection refused
-2025-11-24 03:14:08.156072 Y0..Y7 = [1, 1, 1, 1, 1, 1, 1, 1]
-2025-11-24 03:14:09.583990 D0..D9 = [10, 11, 12, 0, 0, 6, 0, 0, 0, 0]
-MCError writing D5: Command failed (both spec/swap modes): [Errno 111] Connection refused
-2025-11-24 03:14:13.313754 D0..D9 = [10, 11, 12, 0, 0, 6, 0, 0, 0, 0]
-'''
