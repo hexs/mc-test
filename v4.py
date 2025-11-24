@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import socket
 import select
 from datetime import datetime
@@ -392,61 +391,68 @@ class FX3U:
 def main() -> None:
     import time
     with FX3U("192.168.3.254", 1027, timeout=1.5, keep_conn=True, debug=False) as plc:
-        try:
-            x_vals = plc.read_x(0, 8)
-            print(datetime.now(), "X0..X7 =", x_vals)
-        except MCError as e:
-            print("MCError reading X0..X7:", e)
-        time.sleep(1)
-        try:
-            # ปิด Y0..Y7 ทีละบิต
-            for i in range(8):
-                plc.write_y(i, 0)
-                print(datetime.now(), f"Y{i} = 0")
-        except MCError as e:
-            print("MCError writing Y0..Y7:", e)
-        time.sleep(1)
-        try:
-            y_vals = plc.read_y(0, 8)
-            print(datetime.now(), "Y0..Y7 =", y_vals)
-        except MCError as e:
-            print("MCError reading Y0..Y7:", e)
-        time.sleep(1)
-        try:
-            # เปิด Y0..Y7 ทีละบิต
-            for i in range(8):
-                plc.write_y(i, 1)
-                print(datetime.now(), f"Y{i} = 1")
-        except MCError as e:
-            print("MCError writing Y0..Y7:", e)
-        time.sleep(1)
-        try:
-            y_vals = plc.read_y(0, 8)
-            print(datetime.now(), "Y0..Y7 =", y_vals)
-        except MCError as e:
-            print("MCError reading Y0..Y7:", e)
-        time.sleep(1)
-        try:
-            d_vals = plc.read_d(0, 10)
-            print(datetime.now(), "D0..D9 =", d_vals)
-        except MCError as e:
-            print("MCError reading D0..D9:", e)
-        time.sleep(1)
-        try:
-            plc.write_d(5, d_vals[5] + 1)
-            print(datetime.now(), "Wrote D5 =", d_vals[5] + 1)
-        except MCError as e:
-            print("MCError writing D5:", e)
-        time.sleep(1)
-        try:
-            d_vals = plc.read_d(0, 10)
-            print(datetime.now(), "D0..D9 =", d_vals)
-        except MCError as e:
-            print("MCError reading D0..D9:", e)
+        plc.write_y(0, 0)
+        y0 = plc.read_y(0, 1)
+        print(y0)
+        plc.write_y(0, 1)
+        y0 = plc.read_y(0, 1)
+        print(y0)
+
+        # try:
+        #     x_vals = plc.read_x(0, 8)
+        #     print(datetime.now(), "X0..X7 =", x_vals)
+        # except MCError as e:
+        #     print("MCError reading X0..X7:", e)
+        # time.sleep(1)
+        # try:
+        #     # ปิด Y0..Y7 ทีละบิต
+        #     for i in range(8):
+        #         plc.write_y(i, 0)
+        #         print(datetime.now(), f"Y{i} = 0")
+        # except MCError as e:
+        #     print("MCError writing Y0..Y7:", e)
+        # time.sleep(1)
+        # try:
+        #     y_vals = plc.read_y(0, 8)
+        #     print(datetime.now(), "Y0..Y7 =", y_vals)
+        # except MCError as e:
+        #     print("MCError reading Y0..Y7:", e)
+        # time.sleep(1)
+        # try:
+        #     # เปิด Y0..Y7 ทีละบิต
+        #     for i in range(8):
+        #         plc.write_y(i, 1)
+        #         print(datetime.now(), f"Y{i} = 1")
+        # except MCError as e:
+        #     print("MCError writing Y0..Y7:", e)
+        # time.sleep(1)
+        # try:
+        #     y_vals = plc.read_y(0, 8)
+        #     print(datetime.now(), "Y0..Y7 =", y_vals)
+        # except MCError as e:
+        #     print("MCError reading Y0..Y7:", e)
+        # time.sleep(1)
+        # try:
+        #     d_vals = plc.read_d(0, 10)
+        #     print(datetime.now(), "D0..D9 =", d_vals)
+        # except MCError as e:
+        #     print("MCError reading D0..D9:", e)
+        # time.sleep(1)
+        # try:
+        #     plc.write_d(5, d_vals[5] + 1)
+        #     print(datetime.now(), "Wrote D5 =", d_vals[5] + 1)
+        # except MCError as e:
+        #     print("MCError writing D5:", e)
+        # time.sleep(1)
+        # try:
+        #     d_vals = plc.read_d(0, 10)
+        #     print(datetime.now(), "D0..D9 =", d_vals)
+        # except MCError as e:
+        #     print("MCError reading D0..D9:", e)
+
 
 if __name__ == "__main__":
     main()
-
 
 '''
 run on windows PC
