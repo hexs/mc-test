@@ -1,4 +1,3 @@
-# t2.py
 # FX3U-16M + FX3U-ENET-L  (MC protocol A-compatible 1E, ASCII)
 
 import socket
@@ -17,7 +16,7 @@ class FX3U:
         self.debug = debug
 
     def _exchange(self, cmd_hex: str) -> str:
-        if self.debug: print(f"TX: {cmd_hex}")
+        if self.debug: print(f"\nTX: {cmd_hex}")
         with socket.create_connection((self.ip, self.port), timeout=2.0) as sock:
             sock.sendall(cmd_hex.encode("ascii"))
             data = sock.recv(4096)
@@ -161,7 +160,7 @@ if __name__ == "__main__":
     for i in range(8):
         plc.write_y(i, 0)
         print(datetime.now(), f"Y{i} = 0")
-    time.sleep(0.1)
+        time.sleep(0.1)
 
     # อ่าน Y0..Y7
     y_vals = plc.read_y(0, 8)
@@ -172,7 +171,7 @@ if __name__ == "__main__":
     for i in range(8):
         plc.write_y(i, 1)
         print(datetime.now(), f"Y{i} = 1")
-    time.sleep(0.1)
+        time.sleep(0.1)
 
     # อ่าน Y0..Y7 อีกครั้ง
     y_vals = plc.read_y(0, 8)
